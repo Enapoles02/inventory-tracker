@@ -24,14 +24,36 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 /* Header Azul Marino Profundo */
 .header-bar {
     background: linear-gradient(135deg, #001E4E 0%, #002664 100%);
-    padding: 20px 30px; border-radius: 15px; color: white; margin-bottom: 25px;
+    padding: 20px 30px; border-radius: 15px; color: white; margin-bottom: 18px;
 }
 
 /* Paneles Blancos */
 .panel {
-    background: #FFFFFF; border-radius: 12px; padding: 20px;
+    background: #FFFFFF; border-radius: 12px; padding: 18px 20px;
     border: 1px solid #CFD8E3; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
-    margin-bottom: 20px;
+    margin-bottom: 16px;
+}
+
+.panel-tight { padding: 14px 16px; }
+
+.hr { height: 1px; background: #E1E8F0; margin: 14px 0; border: none; }
+
+.badge {
+    display:inline-block;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+    margin: 4px 6px 4px 0;
+}
+
+.small-muted { color:#6A7067; font-size:12px; }
+
+.box-title {
+    font-size: 16px;
+    font-weight: 800;
+    color: #002664;
+    margin: 0 0 8px 0;
 }
 
 /* Sidebar Styling */
@@ -43,32 +65,6 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 
 /* Forzar color azul marino en los tags */
 span[data-baseweb="tag"] { background-color: #002664 !important; }
-
-.hr { height: 1px; background: #E1E8F0; margin: 15px 0; border: none; }
-
-.badge {
-    display:inline-block;
-    padding: 6px 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 800;
-    margin: 4px 6px 4px 0;
-}
-.small-muted { color:#6A7067; font-size:12px; }
-
-.section-title {
-    font-size: 16px;
-    font-weight: 800;
-    color: #002664;
-    margin: 0 0 10px 0;
-}
-
-.box-title {
-    font-size: 18px;
-    font-weight: 800;
-    color: #002664;
-    margin: 0 0 6px 0;
-}
 </style>
 """, unsafe_allow_html=True)
 
@@ -141,22 +137,19 @@ for team, countries in audit_data.items():
 
 df_master = pd.DataFrame(rows)
 
-transferred_teams = [t for t, c in audit_data.items() if len(c) > 0]
-pending_teams = [t for t, c in audit_data.items() if len(c) == 0]
+# Teams sin iniciativas / sin data (fijo, no depende de filtros)
+teams_without_ci = [t for t, c in audit_data.items() if len(c) == 0]
 
-# ===== Países con presencia (match por ISO_A3, rellena bien) =====
-# GeoJSON: https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson
-# Propiedades comunes: ISO_A3 (USA, CAN, MEX, CHL, PER, PRI, etc.)
+# ===== Países con presencia (match por ISO_A3, relleno azul) =====
 iso_a3_map = {
     "CANADA": "CAN",
     "USA": "USA",
     "MEXICO": "MEX",
     "CHILE": "CHL",
     "PERU": "PER",
-    "PR": "PRI",  # Puerto Rico (si viene en el geojson como PRI)
+    "PR": "PRI",
 }
 presence_iso_a3 = sorted({iso_a3_map[c] for c in df_master["Country"].unique() if c in iso_a3_map})
-
 COUNTRIES_GEOJSON_URL = "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson"
 
 # =================================================
@@ -190,17 +183,34 @@ df_f = df_master[
 ]
 
 # =================================================
-# MAIN VIEW
+# HEADER
 # =================================================
 st.markdown('<div class="header-bar"><h1>CIQMS | KT Strategic Monitor</h1></div>', unsafe_allow_html=True)
 
+# =================================================
+# TOP-LEFT FIXED BOX: Teams without CI initiatives transferred
+# =================================================
+top_left, _ = st.columns([1, 2.2])
+with top_left:
+    st.markdown("<div class='panel panel-tight'>", unsafe_allow_html=True)
+    st.markdown("<div class='box-title'>Teams without CI initiatives transferred</div>", unsafe_allow_html=True)
+    if teams_without_ci:
+        for t in teams_without_ci:
+            st.markdown(f"<span class='badge' style='background:#FFEBEE; color:#C62828;'>{t}</span>", unsafe_allow_html=True)
+    else:
+        st.caption("None 🎉")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# =================================================
+# MAIN LAYOUT
+# =================================================
 col_left, col_right = st.columns([1.8, 1])
 
 # =================================================
 # LEFT COLUMN
 # =================================================
 with col_left:
-    # --- GRÁFICO DE ROSCA ---
+    # --- DONUT ---
     current_data = df_f if sel_focus == "Whole Americas" else df_f[df_f["Country"] == sel_focus]
     avg_progress = int(current_data["Progress"].mean()) if not current_data.empty else 0
 
@@ -212,13 +222,7 @@ with col_left:
         showlegend=False
     ))
     fig.update_layout(
-        annotations=[dict(
-            text=f"{avg_progress}%",
-            x=0.5, y=0.5,
-            font_size=40,
-            showarrow=False,
-            font_color="#002664"
-        )],
+        annotations=[dict(text=f"{avg_progress}%", x=0.5, y=0.5, font_size=40, showarrow=False, font_color="#002664")],
         margin=dict(t=0, b=0, l=0, r=0),
         height=180,
         paper_bgcolor="rgba(0,0,0,0)"
@@ -229,32 +233,28 @@ with col_left:
     st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- MAPA: Países rellenos + pines por equipo + labels ---
+    # --- MAP ---
     st.markdown("<div class='panel'>", unsafe_allow_html=True)
-
     v = view_configs.get(sel_focus, view_configs["Whole Americas"])
 
-    # Países rellenos (match por ISO_A3)
+    # Países rellenos (sin perímetro azul)
     countries_layer = pdk.Layer(
         "GeoJsonLayer",
         data=COUNTRIES_GEOJSON_URL,
-        stroked=True,
+        stroked=False,              # <- QUITAMOS PERÍMETRO
         filled=True,
         extruded=False,
-        get_line_color=[0, 38, 100],
-        get_line_width=1,
-        line_width_min_pixels=1,
         get_fill_color=[
             "case",
             ["in", ["get", "ISO_A3"], ["literal", presence_iso_a3]],
-            0, 38, 100,         # azul DSV
-            225, 232, 240       # gris claro
+            0, 38, 100,
+            225, 232, 240
         ],
         opacity=0.45,
         pickable=False,
     )
 
-    # Pines por team (círculos)
+    # Pines por team
     pins_layer = pdk.Layer(
         "ScatterplotLayer",
         data=current_data,
@@ -268,7 +268,7 @@ with col_left:
         line_width_min_pixels=2,
     )
 
-    # Etiquetas del team
+    # Labels de team
     labels_layer = pdk.Layer(
         "TextLayer",
         data=current_data,
@@ -276,7 +276,6 @@ with col_left:
         get_text="TeamLabel",
         get_size=14,
         get_color=[0, 30, 80],
-        get_angle=0,
         get_text_anchor="'start'",
         get_alignment_baseline="'center'",
         pickable=False,
@@ -297,46 +296,49 @@ with col_left:
         ),
         use_container_width=True
     )
-
     st.markdown("</div>", unsafe_allow_html=True)
 
 # =================================================
-# RIGHT COLUMN (SIN HTML GRANDE -> Streamlit puro)
+# RIGHT COLUMN (ADAPTIVE TO FILTERS)
 # =================================================
 with col_right:
     st.markdown("<div class='panel'>", unsafe_allow_html=True)
     st.markdown("### 📋 Team Transfer Status")
     st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
 
-    st.markdown("**✅ Transferred (In Scope)**")
-    for team in transferred_teams:
-        st.markdown(
-            f"<span class='badge' style='background:#E8F5E9; color:#2E7D32;'>{team}</span>",
-            unsafe_allow_html=True
-        )
+    # ✅ Adaptivo a filtros: lista SOLO teams presentes en df_f / current_data
+    active_teams = sorted(current_data["Team"].unique()) if current_data is not None and not current_data.empty else []
+
+    # Si focus es "Whole Americas" -> usa df_f
+    # Si focus es país -> usa current_data (ya filtrado por país)
+    st.markdown("**✅ Active (Filtered View)**")
+    if active_teams:
+        for team in active_teams:
+            st.markdown(
+                f"<span class='badge' style='background:#E8F5E9; color:#2E7D32;'>{team}</span>",
+                unsafe_allow_html=True
+            )
+    else:
+        st.caption("No teams for selected filters.")
 
     st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
 
-    st.markdown("**⏳ Pending (NA/Nothing)**")
-    for team in pending_teams:
-        st.markdown(
-            f"<span class='badge' style='background:#FFEBEE; color:#C62828;'>{team}</span>",
-            unsafe_allow_html=True
-        )
-
-    st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
-
-    st.markdown("### ⚠️ Critical Gaps")
+    # ✅ Critical gaps adaptivo a filtros + focus
+    st.markdown("### ⚠️ Critical Gaps (Filtered)")
     if current_data is None or current_data.empty:
         st.caption("No data for selected filters.")
     else:
-        # Más crítico primero
-        tmp = current_data.sort_values("Progress", ascending=True)
+        tmp = current_data.sort_values("Progress", ascending=True)  # más crítico primero
+        any_gap = False
         for _, r in tmp.iterrows():
             if str(r.get("Pending", "")).strip():
+                any_gap = True
                 st.markdown(f"**{r['Team']} | {r['Country']}**  ·  `{r['Progress']}%`")
                 st.caption(f"Gaps: {r['Pending']}")
                 st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
+
+        if not any_gap:
+            st.caption("No gaps found in this filtered view ✅")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
