@@ -1,3 +1,3 @@
-streamlit>=1.29
-pydeck>=0.8.0
+streamlit
+pydeck
 pandas
