@@ -26,6 +26,7 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
     padding: 20px 30px; border-radius: 15px; color: white; margin-bottom: 25px;
 }
 
+/* Paneles Blancos Estilo Dashboard */
 .panel {
     background: #FFFFFF; border-radius: 12px; padding: 20px;
     border: 1px solid #CFD8E3; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
@@ -37,8 +38,11 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 span[data-baseweb="tag"] { background-color: #002664 !important; }
 
 .hr { height: 1px; background: #E1E8F0; margin: 15px 0; border: none; }
+
 .transfer-badge {
-    padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: 700;
+    display: inline-block;
+    padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 700;
+    margin: 4px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -75,7 +79,7 @@ team_colors = {
     "Intercompany": [180, 0, 0], "Cash Management": [180, 0, 0]
 }
 
-# Consolidar Estatus de Transferencia
+# Procesar estatus de transferencia
 transferred_teams = [t for t, c in audit_data.items() if len(c) > 0]
 pending_teams = [t for t, c in audit_data.items() if len(c) == 0]
 
@@ -94,13 +98,14 @@ for team, countries in audit_data.items():
 df_master = pd.DataFrame(rows)
 
 # =================================================
-# SIDEBAR
+# SIDEBAR - FILTROS CONDICIONALES
 # =================================================
 with st.sidebar:
     st.markdown("### 🛠 Control Panel")
     all_teams = sorted(df_master["Team"].unique())
     selected_teams = st.multiselect("Teams", options=all_teams, default=all_teams)
     
+    # Filtro dinámico: solo muestra países con los equipos seleccionados
     valid_countries = sorted(df_master[df_master["Team"].isin(selected_teams)]["Country"].unique())
     selected_countries = st.multiselect("Countries", options=valid_countries, default=valid_countries)
 
@@ -115,10 +120,10 @@ df_f = df_master[df_master["Team"].isin(selected_teams) & df_master["Country"].i
 # =================================================
 st.markdown('<div class="header-bar"><h1>CIQMS | KT Strategic Monitor</h1></div>', unsafe_allow_html=True)
 
-col_left, col_right = st.columns([1.8, 1])
+col_left, col_right = st.columns([1.6, 1])
 
 with col_left:
-    # --- ROSCA DE COMPLETITUD ---
+    # --- GRÁFICO DE ROSCA ---
     current_data = df_f if sel_focus == "Whole Americas" else df_f[df_f["Country"] == sel_focus]
     avg_progress = int(current_data["Progress"].mean()) if not current_data.empty else 0
     
@@ -136,67 +141,68 @@ with col_left:
     st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- MAPA CON PINES VISIBLES ---
+    # --- MAPA (PINES GRANDES Y VISIBLES) ---
     st.markdown("<div class='panel'>", unsafe_allow_html=True)
     
-    view_states = {
-        "Whole Americas": {"lat": 10, "lon": -85, "zoom": 2.2},
-        "MEXICO": {"lat": 23.6, "lon": -102.5, "zoom": 5},
-        "CANADA": {"lat": 56.1, "lon": -106.3, "zoom": 3.5},
-        "USA": {"lat": 37.1, "lon": -95.7, "zoom": 4},
-        "CHILE": {"lat": -35.7, "lon": -71.5, "zoom": 4.5},
-        "PERU": {"lat": -9.2, "lon": -75.0, "zoom": 5.5},
-        "PR": {"lat": 18.2, "lon": -66.6, "zoom": 8}
-    }
-    v = view_states.get(sel_focus, view_states["Whole Americas"])
-
-    # Capa de Iconos (Pines)
-    icon_layer = pdk.Layer(
-        "ScatterplotLayer",
-        data=current_data,
-        get_position="[lon, lat]",
-        get_fill_color="color",
-        get_radius=180000,
-        pickable=True,
-        opacity=0.8,
-        stroked=True,
-        get_line_color=[255, 255, 255],
-        line_width_min_pixels=2,
-    )
+    v_map = {"Whole Americas": [15, -85, 2.2], "MEXICO": [23, -102, 5], "CANADA": [56, -106, 3.5], "USA": [37, -95, 4], "CHILE": [-35, -71, 4.5], "PERU": [-9, -75, 5.5], "PR": [18, -66, 8]}
+    focus_coords = v_map.get(sel_focus, v_map["Whole Americas"])
 
     st.pydeck_chart(pdk.Deck(
         map_style="light",
-        initial_view_state=pdk.ViewState(latitude=v["lat"], longitude=v["lon"], zoom=v["zoom"], pitch=0, transitionDuration=1000),
-        layers=[icon_layer],
-        tooltip={"text": "{Team} in {Country}\nReadiness: {Progress}%"}
+        initial_view_state=pdk.ViewState(latitude=focus_coords[0], longitude=focus_coords[1], zoom=focus_coords[2], pitch=0),
+        layers=[
+            pdk.Layer(
+                "ScatterplotLayer",
+                data=current_data,
+                get_position="[lon, lat]",
+                get_fill_color="color",
+                get_radius=220000 if sel_focus == "Whole Americas" else 50000,
+                pickable=True,
+                opacity=0.9,
+                stroked=True,
+                get_line_color=[255, 255, 255],
+                line_width_min_pixels=2,
+            )
+        ],
+        tooltip={"text": "Team: {Team}\nCountry: {Country}\nProgress: {Progress}%"}
     ), use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 with col_right:
-    # --- INFO DE TRANSFERENCIA POR EQUIPO (REEMPLAZO DEL BOTON BLANCO) ---
-    st.markdown("<div class='panel' style='height: 835px; overflow-y: auto;'>", unsafe_allow_html=True)
+    # --- EL CUADRO DE LA DERECHA: INFO ESTRATÉGICA ---
+    st.markdown("<div class='panel' style='height: 820px; overflow-y: auto;'>", unsafe_allow_html=True)
     st.markdown("### 📋 Team Transfer Status")
     st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
     
-    st.markdown("**✅ Transferred (In GBS Scope)**")
-    for team in transferred_teams:
-        st.markdown(f"<span class='transfer-badge' style='background:#E8F5E9; color:#2E7D32;'>{team}</span>", unsafe_allow_html=True)
+    st.markdown("**✅ Transferred (Active in GBS)**")
+    for t in transferred_teams:
+        st.markdown(f"<span class='transfer-badge' style='background:#E8F5E9; color:#2E7D32;'>{t}</span>", unsafe_allow_html=True)
     
     st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
-    st.markdown("**⏳ Pending Transfer (NA/Nothing)**")
-    for team in pending_teams:
-        st.markdown(f"<span class='transfer-badge' style='background:#FFEBEE; color:#C62828;'>{team}</span>", unsafe_allow_html=True)
+    st.markdown("**⏳ Pending (NA / Nothing)**")
+    for t in pending_teams:
+        st.markdown(f"<span class='transfer-badge' style='background:#FFEBEE; color:#C62828;'>{t}</span>", unsafe_allow_html=True)
     
     st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
-    st.markdown("### ⚠️ Country Gaps")
-    for _, r in current_data.sort_values("Progress", ascending=False).iterrows():
-        if r['Pending']:
+    st.markdown("### ⚠️ Country Gaps Analysis")
+    st.markdown("<div class='small-muted'>Gaps identified in current focus selection:</div>", unsafe_allow_html=True)
+    
+    # Mostrar Gaps del país o selección actual
+    gaps_found = current_data[current_data["Pending"] != ""]
+    if gaps_found.empty:
+        st.success("No gaps identified for this selection.")
+    else:
+        for _, r in gaps_found.sort_values("Progress", ascending=False).iterrows():
             st.markdown(f"**{r['Team']} | {r['Country']}**")
-            st.caption(f"Gaps: {r['Pending']}")
+            st.progress(r["Progress"]/100)
+            st.caption(f"⚠️ Missing: {r['Pending']}")
+            st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
+            
     st.markdown("</div>", unsafe_allow_html=True)
 
-# MATRIX
+# MATRIX INFERIOR
 st.markdown("<div class='panel'>", unsafe_allow_html=True)
-st.markdown("### Strategic Readiness Matrix")
+st.markdown("### Executive Matrix")
 st.dataframe(df_f[["Team", "Country", "Progress", "Pending"]].sort_values("Progress", ascending=False), use_container_width=True)
 st.markdown("</div>", unsafe_allow_html=True)
+st.caption("DSV | CIQMS GBS Mexico – KT Strategic Tracker")
