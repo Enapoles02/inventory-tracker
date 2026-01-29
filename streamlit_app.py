@@ -104,7 +104,7 @@ df = pd.DataFrame(rows)
 # SIDEBAR FILTERS (MENOS CARGADO)
 # =================================================
 with st.sidebar:
-    st.image("https://www.dsv.com/Assets/images/dsv-logo-vertical-white.svg", width=100) # Opcional: Logo DSV
+    st.image("https://play-lh.googleusercontent.com/A0wA3S1uGiGXOc_-Cbp8f1_CHzNJxzgvHTGAZJqlG0Eg5SojX8VSJqk2E5449IRjwak", width=100) # Opcional: Logo DSV
     st.markdown("### Control Panel")
     st.markdown("---")
     
