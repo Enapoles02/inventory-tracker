@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # =================================================
-# CORPORATE CSS (DSV) - AZUL MARINO & ELEGANCIA
+# CORPORATE CSS (DSV)
 # =================================================
 st.markdown("""
 <style>
@@ -21,59 +21,32 @@ st.markdown("""
 html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 .stApp { background-color: #EBF0F5; }
 
-/* Header Azul Marino Profundo */
 .header-bar {
     background: linear-gradient(135deg, #001E4E 0%, #002664 100%);
     padding: 20px 30px; border-radius: 15px; color: white; margin-bottom: 25px;
 }
 
-/* Paneles Blancos */
 .panel {
     background: #FFFFFF; border-radius: 12px; padding: 20px;
     border: 1px solid #CFD8E3; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.03);
     margin-bottom: 20px;
 }
 
-/* Sidebar Styling */
 [data-testid="stSidebar"] { background-color: #001E4E; }
-[data-testid="stSidebar"] .stMarkdown,
-[data-testid="stSidebar"] label,
-[data-testid="stSidebar"] span,
-[data-testid="stSidebar"] p { color: white !important; }
-
-/* Forzar color azul marino en los tags */
+[data-testid="stSidebar"] .stMarkdown, [data-testid="stSidebar"] label { color: white !important; }
 span[data-baseweb="tag"] { background-color: #002664 !important; }
 
 .hr { height: 1px; background: #E1E8F0; margin: 15px 0; border: none; }
-
-.badge {
-    display:inline-block;
-    padding: 6px 10px;
-    border-radius: 999px;
-    font-size: 12px;
-    font-weight: 800;
-    margin: 4px 6px 4px 0;
-}
-.small-muted { color:#6A7067; font-size:12px; }
-
-.section-title {
-    font-size: 16px;
-    font-weight: 800;
-    color: #002664;
-    margin: 0 0 10px 0;
-}
-
-.box-title {
-    font-size: 18px;
-    font-weight: 800;
-    color: #002664;
-    margin: 0 0 6px 0;
+.transfer-badge {
+    display: inline-block;
+    padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: 700;
+    margin: 3px;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # =================================================
-# DATA
+# DATA (Info previa restaurada)
 # =================================================
 tasks = ["Team Huddle", "Operational Calls", "Feedback Tool", "QC", "SharePoint/Catalogue", "Unit Pricing", "MM", "KPIs"]
 
@@ -99,256 +72,151 @@ geo_coords = {
 }
 
 view_configs = {
-    "Whole Americas": {"lat": 12, "lon": -85, "zoom": 2.2},
-    "CANADA": {"lat": 56.1, "lon": -106.3, "zoom": 3.5},
-    "USA": {"lat": 37.1, "lon": -95.7, "zoom": 3.8},
-    "MEXICO": {"lat": 23.6, "lon": -102.5, "zoom": 5.0},
-    "CHILE": {"lat": -35.7, "lon": -71.5, "zoom": 4.2},
-    "PERU": {"lat": -9.2, "lon": -75.0, "zoom": 5.2},
-    "PR": {"lat": 18.2, "lon": -66.6, "zoom": 7.5},
+    "Whole Americas": [15, -85, 2.2],
+    "CANADA": [56.1, -106.3, 3.5],
+    "USA": [37.1, -95.7, 4.0],
+    "MEXICO": [23.6, -102.5, 5.0],
+    "CHILE": [-35.7, -71.5, 4.2],
+    "PERU": [-9.2, -75.0, 5.2],
+    "PR": [18.2, -66.6, 7.5],
 }
 
 team_colors = {
-    "AP": [0, 80, 180],
-    "VQH": [50, 80, 200],
-    "Verification": [18, 99, 56],
-    "Cost Match": [0, 38, 100],
-    "Claims": [180, 0, 0],
-    "Intercompany": [180, 0, 0],
-    "Cash Management": [180, 0, 0]
+    "AP": [0, 80, 180], "VQH": [50, 80, 200], "Verification": [18, 99, 56],
+    "Cost Match": [0, 38, 100], "Claims": [180, 0, 0], 
+    "Intercompany": [180, 0, 0], "Cash Management": [180, 0, 0]
 }
 
-# =================================================
-# BUILD MASTER DF
-# =================================================
+# Procesar filas maestras
 rows = []
 for team, countries in audit_data.items():
-    if not countries:
-        continue
+    if not countries: continue
     for country, vals in countries.items():
         prog = int(round((sum(vals) / len(vals)) * 100))
-        pending_list = [tasks[i] for i, v in enumerate(vals) if v == 0]
         rows.append({
-            "Team": team,
-            "Country": country,
-            "Progress": prog,
-            "lat": geo_coords[country][0],
-            "lon": geo_coords[country][1],
+            "Team": team, "Country": country, "Progress": prog,
+            "lat": geo_coords[country][0], "lon": geo_coords[country][1],
             "color": team_colors.get(team, [0, 38, 100]),
-            "Pending": ", ".join(pending_list),
-            "TeamLabel": team
+            "Pending": ", ".join([tasks[i] for i, v in enumerate(vals) if v == 0])
         })
-
 df_master = pd.DataFrame(rows)
 
-transferred_teams = [t for t, c in audit_data.items() if len(c) > 0]
-pending_teams = [t for t, c in audit_data.items() if len(c) == 0]
-
-# ===== Países con presencia (match por ISO_A3, rellena bien) =====
-# GeoJSON: https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson
-# Propiedades comunes: ISO_A3 (USA, CAN, MEX, CHL, PER, PRI, etc.)
-iso_a3_map = {
-    "CANADA": "CAN",
-    "USA": "USA",
-    "MEXICO": "MEX",
-    "CHILE": "CHL",
-    "PERU": "PER",
-    "PR": "PRI",  # Puerto Rico (si viene en el geojson como PRI)
-}
-presence_iso_a3 = sorted({iso_a3_map[c] for c in df_master["Country"].unique() if c in iso_a3_map})
-
-COUNTRIES_GEOJSON_URL = "https://raw.githubusercontent.com/datasets/geo-countries/master/data/countries.geojson"
-
 # =================================================
-# SIDEBAR - FILTROS
+# SIDEBAR - FILTROS DINÁMICOS
 # =================================================
 with st.sidebar:
-    # Logo DSV arriba del sidebar
-    try:
-        st.image("assets/dsv_logo.png", use_container_width=True)
-    except Exception:
-        st.image(
-            "https://upload.wikimedia.org/wikipedia/commons/thumb/6/6f/DSV_logo.svg/512px-DSV_logo.svg.png",
-            use_container_width=True
-        )
-
     st.markdown("### 🛠 Control Panel")
-
-    all_teams = sorted(df_master["Team"].unique())
-    selected_teams = st.multiselect("Teams", options=all_teams, default=all_teams)
-
+    all_teams_list = sorted(list(audit_data.keys()))
+    selected_teams = st.multiselect("Teams", options=all_teams_list, default=all_teams_list)
+    
+    # Países válidos según equipos seleccionados
     valid_countries = sorted(df_master[df_master["Team"].isin(selected_teams)]["Country"].unique())
     selected_countries = st.multiselect("Countries", options=valid_countries, default=valid_countries)
 
-    st.markdown("---")
-    map_focus_opts = ["Whole Americas"] + selected_countries
-    sel_focus = st.selectbox("🌍 Map Focus", map_focus_opts)
+    # Lógica de Map Focus Adaptable
+    # Si solo hay un país en la selección, forzamos el focus a ese país
+    if len(selected_countries) == 1:
+        auto_focus = selected_countries[0]
+    else:
+        auto_focus = "Whole Americas"
 
-df_f = df_master[
-    df_master["Team"].isin(selected_teams) &
-    df_master["Country"].isin(selected_countries)
-]
+    st.markdown("---")
+    sel_focus = st.selectbox("🌍 Map Focus", ["Whole Americas"] + selected_countries, index=0 if len(selected_countries) != 1 else 1)
+
+df_f = df_master[df_master["Team"].isin(selected_teams) & df_master["Country"].isin(selected_countries)]
 
 # =================================================
 # MAIN VIEW
 # =================================================
 st.markdown('<div class="header-bar"><h1>CIQMS | KT Strategic Monitor</h1></div>', unsafe_allow_html=True)
 
-col_left, col_right = st.columns([1.8, 1])
+col_left, col_right = st.columns([1.7, 1])
 
-# =================================================
-# LEFT COLUMN
-# =================================================
 with col_left:
-    # --- GRÁFICO DE ROSCA ---
-    current_data = df_f if sel_focus == "Whole Americas" else df_f[df_f["Country"] == sel_focus]
-    avg_progress = int(current_data["Progress"].mean()) if not current_data.empty else 0
-
+    # --- ROSCA DE COMPLETITUD ---
+    current_view_data = df_f if sel_focus == "Whole Americas" else df_f[df_f["Country"] == sel_focus]
+    avg_progress = int(current_view_data["Progress"].mean()) if not current_view_data.empty else 0
+    
     fig = go.Figure(go.Pie(
-        values=[avg_progress, 100 - avg_progress],
-        hole=0.75,
-        marker_colors=["#002664", "#E1E8F0"],
-        textinfo="none",
-        showlegend=False
+        values=[avg_progress, 100 - avg_progress], hole=0.75,
+        marker_colors=["#002664", "#E1E8F0"], textinfo='none', showlegend=False
     ))
     fig.update_layout(
-        annotations=[dict(
-            text=f"{avg_progress}%",
-            x=0.5, y=0.5,
-            font_size=40,
-            showarrow=False,
-            font_color="#002664"
-        )],
-        margin=dict(t=0, b=0, l=0, r=0),
-        height=180,
-        paper_bgcolor="rgba(0,0,0,0)"
+        annotations=[dict(text=f'{avg_progress}%', x=0.5, y=0.5, font_size=40, showarrow=False, font_color="#002664")],
+        margin=dict(t=0, b=0, l=0, r=0), height=180, paper_bgcolor='rgba(0,0,0,0)'
     )
-
-    st.markdown("<div class='panel' style='text-align:center;'>", unsafe_allow_html=True)
+    
+    st.markdown("<div class='panel' style='text-align: center;'>", unsafe_allow_html=True)
     st.markdown(f"**Readiness Score: {sel_focus}**")
-    st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+    st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # --- MAPA: Países rellenos + pines por equipo + labels ---
+    # --- MAPA (PINES VISIBLES) ---
     st.markdown("<div class='panel'>", unsafe_allow_html=True)
+    coords = view_configs.get(sel_focus, view_configs["Whole Americas"])
 
-    v = view_configs.get(sel_focus, view_configs["Whole Americas"])
-
-    # Países rellenos (match por ISO_A3)
-    countries_layer = pdk.Layer(
-        "GeoJsonLayer",
-        data=COUNTRIES_GEOJSON_URL,
-        stroked=True,
-        filled=True,
-        extruded=False,
-        get_line_color=[0, 38, 100],
-        get_line_width=1,
-        line_width_min_pixels=1,
-        get_fill_color=[
-            "case",
-            ["in", ["get", "ISO_A3"], ["literal", presence_iso_a3]],
-            0, 38, 100,         # azul DSV
-            225, 232, 240       # gris claro
+    st.pydeck_chart(pdk.Deck(
+        map_style="light",
+        initial_view_state=pdk.ViewState(latitude=coords[0], longitude=coords[1], zoom=coords[2], pitch=0, transitionDuration=1000),
+        layers=[
+            pdk.Layer(
+                "ScatterplotLayer",
+                data=current_view_data,
+                get_position="[lon, lat]",
+                get_fill_color="color",
+                get_radius=200000 if sel_focus == "Whole Americas" else 60000,
+                pickable=True,
+                opacity=0.9,
+                stroked=True,
+                get_line_color=[255, 255, 255],
+                line_width_min_pixels=2,
+            )
         ],
-        opacity=0.45,
-        pickable=False,
-    )
-
-    # Pines por team (círculos)
-    pins_layer = pdk.Layer(
-        "ScatterplotLayer",
-        data=current_data,
-        get_position="[lon, lat]",
-        get_fill_color="color",
-        get_radius=180000,
-        pickable=True,
-        opacity=0.85,
-        stroked=True,
-        get_line_color=[255, 255, 255],
-        line_width_min_pixels=2,
-    )
-
-    # Etiquetas del team
-    labels_layer = pdk.Layer(
-        "TextLayer",
-        data=current_data,
-        get_position="[lon, lat]",
-        get_text="TeamLabel",
-        get_size=14,
-        get_color=[0, 30, 80],
-        get_angle=0,
-        get_text_anchor="'start'",
-        get_alignment_baseline="'center'",
-        pickable=False,
-    )
-
-    st.pydeck_chart(
-        pdk.Deck(
-            map_style="light",
-            initial_view_state=pdk.ViewState(
-                latitude=v["lat"],
-                longitude=v["lon"],
-                zoom=v["zoom"],
-                pitch=0,
-                transitionDuration=800
-            ),
-            layers=[countries_layer, pins_layer, labels_layer],
-            tooltip={"text": "{Team} in {Country}\nReadiness: {Progress}%\nGaps: {Pending}"}
-        ),
-        use_container_width=True
-    )
-
+        tooltip={"text": "{Team} in {Country}\nReadiness: {Progress}%"}
+    ), use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# =================================================
-# RIGHT COLUMN (SIN HTML GRANDE -> Streamlit puro)
-# =================================================
 with col_right:
-    st.markdown("<div class='panel'>", unsafe_allow_html=True)
+    # --- EL CUADRO DE LA DERECHA (INTERACTIVO) ---
+    st.markdown("<div class='panel' style='height: 825px; overflow-y: auto;'>", unsafe_allow_html=True)
     st.markdown("### 📋 Team Transfer Status")
     st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
+    
+    # Estatus dinámico basado en filtro de Sidebar
+    transferred_in_filter = [t for t in selected_teams if len(audit_data.get(t, {})) > 0]
+    pending_in_filter = [t for t in selected_teams if len(audit_data.get(t, {})) == 0]
 
-    st.markdown("**✅ Transferred (In Scope)**")
-    for team in transferred_teams:
-        st.markdown(
-            f"<span class='badge' style='background:#E8F5E9; color:#2E7D32;'>{team}</span>",
-            unsafe_allow_html=True
-        )
-
+    st.markdown("**✅ Active in GBS Mexico**")
+    if not transferred_in_filter: st.caption("No active teams selected.")
+    for t in transferred_teams:
+        if t in selected_teams:
+            st.markdown(f"<span class='transfer-badge' style='background:#E8F5E9; color:#2E7D32;'>{t}</span>", unsafe_allow_html=True)
+    
     st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
-
-    st.markdown("**⏳ Pending (NA/Nothing)**")
-    for team in pending_teams:
-        st.markdown(
-            f"<span class='badge' style='background:#FFEBEE; color:#C62828;'>{team}</span>",
-            unsafe_allow_html=True
-        )
-
+    st.markdown("**⏳ Pending / Outside Scope**")
+    for t in pending_teams:
+        if t in selected_teams:
+            st.markdown(f"<span class='transfer-badge' style='background:#FFEBEE; color:#C62828;'>{t}</span>", unsafe_allow_html=True)
+    
     st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
-
-    st.markdown("### ⚠️ Critical Gaps")
-    if current_data is None or current_data.empty:
-        st.caption("No data for selected filters.")
+    st.markdown("### ⚠️ Gap Analysis")
+    
+    # Gaps específicos de la selección actual
+    gaps_display = current_view_data[current_view_data["Pending"] != ""]
+    if gaps_display.empty:
+        st.success("All selected items are 100% ready.")
     else:
-        # Más crítico primero
-        tmp = current_data.sort_values("Progress", ascending=True)
-        for _, r in tmp.iterrows():
-            if str(r.get("Pending", "")).strip():
-                st.markdown(f"**{r['Team']} | {r['Country']}**  ·  `{r['Progress']}%`")
-                st.caption(f"Gaps: {r['Pending']}")
-                st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
-
+        for _, r in gaps_display.sort_values("Progress", ascending=False).iterrows():
+            st.markdown(f"**{r['Team']} | {r['Country']}**")
+            st.progress(r["Progress"]/100)
+            st.caption(f"⚠️ Missing: {r['Pending']}")
+            st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
+            
     st.markdown("</div>", unsafe_allow_html=True)
 
-# =================================================
-# MATRIX FINAL
-# =================================================
+# MATRIX INFERIOR
 st.markdown("<div class='panel'>", unsafe_allow_html=True)
 st.markdown("### Strategic Readiness Matrix")
-st.dataframe(
-    df_f[["Team", "Country", "Progress", "Pending"]].sort_values("Progress", ascending=False),
-    use_container_width=True
-)
+st.dataframe(df_f[["Team", "Country", "Progress", "Pending"]].sort_values("Progress", ascending=False), use_container_width=True)
 st.markdown("</div>", unsafe_allow_html=True)
-
-st.caption("DSV | CIQMS GBS Mexico – Knowledge Transfer Tracker")
+st.caption("DSV | CIQMS GBS Mexico – KT Strategic Monitor")
