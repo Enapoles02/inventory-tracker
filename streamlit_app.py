@@ -2,38 +2,51 @@ import streamlit as st
 import pandas as pd
 import pydeck as pdk
 
-# --- CONFIGURACIÓN CORPORATIVA DSV ---
+# Configuración de alto nivel
 st.set_page_config(
-    page_title="DSV Global | Knowledge Transfer Intelligence",
+    page_title="DSV | Knowledge Transfer Strategic Monitor",
     page_icon="🌍",
-    layout="wide",
-    initial_sidebar_state="collapsed"
+    layout="wide"
 )
 
-# Colores Oficiales DSV
-DSV_BLUE = "#002664"
-DSV_SKY = "#739ABC"
-DSV_WHITE = "#FFFFFF"
-
-# Estilos CSS Inyectados para acabado Premium
-st.markdown(f"""
+# --- IDENTIDAD CORPORATIVA DSV (CSS AVANZADO) ---
+st.markdown("""
     <style>
-    .main {{ background-color: #f0f2f6; }}
-    .stMetric {{ 
-        background-color: white; 
-        padding: 20px; 
-        border-radius: 8px; 
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-        border-top: 4px solid {DSV_BLUE};
-    }}
-    h1, h2, h3 {{ color: {DSV_BLUE} !位important; font-weight: 800; }}
-    .stProgress > div > div > div {{ background-color: {DSV_BLUE}; }}
-    [data-testid="stHeader"] {{ background: {DSV_BLUE}; }}
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800&display=swap');
+    
+    html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
+    
+    .main { background-color: #F8F9FB; }
+    
+    /* Estilo de Tarjetas Métricas */
+    [data-testid="stMetric"] {
+        background-color: #FFFFFF;
+        border-radius: 4px;
+        padding: 20px;
+        border-bottom: 4px solid #002664;
+        box-shadow: 0 4px 12px rgba(0, 38, 100, 0.08);
+    }
+    
+    /* Header Corporativo */
+    .header-bar {
+        background-color: #002664;
+        padding: 20px;
+        border-radius: 0 0 15px 15px;
+        color: white;
+        margin-bottom: 30px;
+    }
+    
+    /* Expansores y tablas */
+    .stExpander { border: none !important; box-shadow: none !important; background: white !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# --- DATA AUDITADA (Basada en tus tablas) ---
-data_matrix = {
+# --- DATA ESTRUCTURADA ---
+# Tareas auditadas de tus imágenes
+tasks = ["Team Huddle", "Operational Calls", "Feedback Tool", "QC", "SharePoint/Catalogue", "Unit Pricing", "MM", "KPIs"]
+
+# Dataset basado en las imágenes originales
+audit_data = {
     "AP": {
         "CANADA": [1,1,1,1,0,0,1,1], "CHILE": [1,0,1,1,0,0,1,1], 
         "MEXICO": [0,0,1,0,0,0,1,1], "USA": [1,1,1,1,0,0,1,1]
@@ -48,69 +61,107 @@ data_matrix = {
     "Cost Match": { "USA": [1,1,1,1,0,0,1,1] }
 }
 
-labels = ["Team Huddle", "Operational Calls", "Feedback/Incident", "QC", "SharePoint/Catalogue", "Unit Pricing", "MM", "KPIs"]
-coords = {
+# Coordenadas precisas para evitar solapamiento visual
+geo_coords = {
     "CANADA": [56.1, -106.3], "USA": [37.1, -95.7], "MEXICO": [23.6, -102.5],
-    "CHILE": [-35.6, -71.5], "PERU": [-9.2, -75.0], "PR": [18.2, -66.6]
+    "CHILE": [-35.7, -71.5], "PERU": [-9.2, -75.0], "PR": [18.2, -66.6]
 }
 
-# Procesar para el mapa
+# Paleta DSV Blue Graduated (Diferentes tonalidades para cada equipo)
+dsv_palette = {
+    "AP": [0, 38, 100],        # Midnight Blue (Base)
+    "VQH": [40, 80, 140],      # Navy Blue
+    "Verification": [80, 130, 190], # Steel Blue
+    "Cost Match": [120, 170, 220]   # Sky Blue
+}
+
+# --- PROCESAMIENTO DE DATOS ---
 rows = []
-for eq, countries in data_matrix.items():
+for eq, countries in audit_data.items():
     for c, val in countries.items():
         prog = int((sum(val)/len(val))*100)
-        missing = [labels[i] for i, v in enumerate(val) if v == 0]
-        ready = [labels[i] for i, v in enumerate(val) if v == 1]
+        missing = [tasks[i] for i, v in enumerate(val) if v == 0]
+        
+        # Offset para que los pines de un mismo país se vean separados y elegantes
+        jitter = list(audit_data.keys()).index(eq) * 0.9
+        
         rows.append({
             "Team": eq, "Country": c, "Progress": prog,
-            "lat": coords[c][0] + (len(rows)*0.2), "lon": coords[c][1],
-            "Pending": ", ".join(missing), "Done": ready
+            "lat": geo_coords[c][0] + (jitter if c != "PR" else 0), 
+            "lon": geo_coords[c][1] + jitter,
+            "color": dsv_palette[eq],
+            "Pending": ", ".join(missing)
         })
+
 df = pd.DataFrame(rows)
 
-# --- DASHBOARD HEADER ---
-st.image("https://www.dsv.com/Assets/dsv/dsv-logo-blue.svg", width=120)
-st.title("Knowledge Transfer Strategic Monitor")
-st.markdown("#### Operational Readiness | Americas Region")
+# --- CABECERA DE LA PRESENTACIÓN ---
+st.markdown("""
+    <div class="header-bar">
+        <h1 style='margin:0; color:white;'>KNOWLEDGE TRANSFER STRATEGIC MONITOR</h1>
+        <p style='margin:0; opacity:0.8;'>Global Operations | Americas Region | Readiness Audit 2026</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-# Métricas de Poder
+# KPIs Principales (Corregidos para que siempre carguen)
 c1, c2, c3, c4 = st.columns(4)
-c1.metric("Overall Americas Progress", f"{int(df['Progress'].mean())}%", "↑ 4%")
-c2.metric("Verification Efficiency", "90%", "Target Reached")
-c3.metric("Critical Gaps (SharePoint)", "100%", "Systemic Issue")
-c4.metric("Active Regions", "6", "On Schedule")
+with c1: st.metric("Overall Progress", f"{int(df['Progress'].mean())}%")
+with c2: st.metric("Top Performer", "Verification", "90% Ready")
+with c3: st.metric("Risk Areas", "SharePoint", "-100% Core")
+with c4: st.metric("Deployment Status", "On Track", "Phase 2")
 
-st.divider()
+st.write("")
 
-# --- SECCIÓN VISUAL ---
-col_map, col_audit = st.columns([1.8, 1])
+# --- VISUALIZACIÓN CORE ---
+col_map, col_details = st.columns([1.5, 1])
 
 with col_map:
-    st.subheader("Global Deployment Map")
+    st.markdown("### 🌎 Interactive Deployment Status")
+    # Capa de Mapa con estilo DSV (Limpio y profesional)
     st.pydeck_chart(pdk.Deck(
         map_style='https://basemaps.cartocdn.com/gl/positron-gl-style/style.json',
-        initial_view_state=pdk.ViewState(latitude=10, longitude=-80, zoom=2.2),
-        layers=[pdk.Layer(
-            "ScatterplotLayer", df, get_position='[lon, lat]',
-            get_color='[0, 38, 100, 160]', get_radius=250000, pickable=True
-        )],
-        tooltip={"text": "{Team} - {Country}\nProgreso: {Progress}%\nFalta: {Pending}"}
+        initial_view_state=pdk.ViewState(latitude=12, longitude=-82, zoom=2.3, pitch=0),
+        layers=[
+            pdk.Layer(
+                "ScatterplotLayer",
+                df,
+                get_position='[lon, lat]',
+                get_color='color',
+                get_radius=220000,
+                pickable=True,
+                opacity=0.9
+            ),
+        ],
+        tooltip={"text": "Team: {Team}\nCountry: {Country}\nReadiness: {Progress}%\nMissing: {Pending}"}
     ))
 
-with col_audit:
-    st.subheader("Deep Audit Tool")
-    sel_country = st.selectbox("Select Country:", df["Country"].unique())
-    country_rows = df[df["Country"] == sel_country]
+with col_details:
+    st.markdown("### 🔍 Strategic Audit Details")
+    # Selector de País con diseño limpio
+    selected_c = st.selectbox("Filter by Country:", df["Country"].unique(), index=1)
+    country_df = df[df["Country"] == selected_c]
     
-    for _, r in country_rows.iterrows():
-        with st.expander(f"🔍 {r['Team']} - {r['Progress']}% Complete"):
-            st.write("**Done:**")
-            st.caption(" | ".join(r['Done']))
-            st.error(f"**Action Required:** {r['Pending']}")
+    for _, row in country_df.iterrows():
+        st.markdown(f"**Team: {row['Team']}**")
+        st.progress(row['Progress']/100)
+        if row['Pending']:
+            st.markdown(f"⚠️ <span style='color:#D93025; font-size:0.8em;'>PENDING: {row['Pending']}</span>", unsafe_allow_html=True)
+        else:
+            st.markdown("✅ <span style='color:#188038; font-size:0.8em;'>FULL READINESS</span>", unsafe_allow_html=True)
+        st.write("")
 
-# --- CONCLUSIÓN ---
+# --- MATRIZ FINAL PARA EL JEFE ---
 st.divider()
-st.subheader("Strategic Progress Matrix")
-st.dataframe(df[["Team", "Country", "Progress", "Pending"]], use_container_width=True)
+st.markdown("### 📋 Executive Readiness Matrix")
+st.dataframe(
+    df[["Team", "Country", "Progress", "Pending"]].sort_values(by=["Country", "Progress"], ascending=[True, False]),
+    use_container_width=True,
+    column_config={
+        "Progress": st.column_config.ProgressColumn(format="%d%%", min_value=0, max_value=100),
+        "Pending": "Identified Gaps"
+    }
+)
 
-st.info("💡 **Executive Summary:** Transition for 'Verification' and 'Cost Match' is near completion. Focus should pivot to SharePoint integration across all clusters.")
+# Footer Corporativo
+st.markdown("---")
+st.caption("DSV Global Knowledge Transfer Tracker | Confidential - Internal Use Only")
