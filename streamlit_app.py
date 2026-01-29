@@ -93,12 +93,10 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 """, unsafe_allow_html=True)
 
 # =================================================
-# DATA (from your images / definitions)
+# DATA
 # =================================================
 tasks = ["Team Huddle", "Operational Calls", "Feedback Tool", "QC", "SharePoint/Catalogue", "Unit Pricing", "MM", "KPIs"]
 
-# 1 = YES (Transferred & executed)
-# 0 = NO (In country visible, not yet transferred/executed)
 audit_data = {
     "AP": {
         "CANADA": [1,1,1,1,0,0,1,1],
@@ -114,19 +112,17 @@ audit_data = {
         "CANADA": [1,1,1,1,0,1,1,1],
         "CHILE":  [1,1,1,1,0,1,1,1],
         "PERU":   [1,1,1,1,0,1,1,1],
-        "PR":     [1,1,1,1,0,1,1,1],
+        "PR":      [1,1,1,1,0,1,1,1],
         "USA":    [1,1,1,1,0,1,1,1],
     },
     "Cost Match": {
         "USA": [1,1,1,1,0,0,1,1],
     },
-    # Pending transfer (NA / NOTHING in your tracker)
     "Claims": {},
     "Intercompany": {},
     "Cash Management": {},
 }
 
-# Country centroids (good enough; we place pins INSIDE each country using offsets)
 geo_coords = {
     "CANADA": [56.1, -106.3],
     "USA": [37.1, -95.7],
@@ -136,18 +132,16 @@ geo_coords = {
     "PR": [18.2, -66.6],
 }
 
-# Corporate-distinct palette (easy to separate)
 team_colors = {
-    "AP": [0, 102, 204],             # blue
-    "VQH": [102, 90, 255],           # indigo
-    "Verification": [0, 153, 102],   # green
-    "Cost Match": [0, 38, 100],      # DSV core navy
-    "Claims": [220, 53, 69],         # red
-    "Intercompany": [220, 53, 69],   # red
-    "Cash Management": [220, 53, 69] # red
+    "AP": [0, 102, 204],
+    "VQH": [102, 90, 255],
+    "Verification": [0, 153, 102],
+    "Cost Match": [0, 38, 100],
+    "Claims": [220, 53, 69],
+    "Intercompany": [220, 53, 69],
+    "Cash Management": [220, 53, 69]
 }
 
-# Short labels for pins
 team_short = {
     "AP": "AP",
     "VQH": "VQH",
@@ -159,18 +153,11 @@ team_short = {
 }
 
 # =================================================
-# BUILD PIN POSITIONS (NO OVERLAP)
-# We place multiple team pins inside each country using a fixed offset pattern.
+# BUILD PIN POSITIONS
 # =================================================
-# Offset patterns in degrees (small, stable, doesn’t “move around”)
-# pattern supports up to 6+ teams per country if needed
 offset_pattern = [
-    (-2.2, -1.2),
-    ( 0.0, -1.2),
-    ( 2.2, -1.2),
-    (-2.2,  1.2),
-    ( 0.0,  1.2),
-    ( 2.2,  1.2),
+    (-2.2, -1.2), ( 0.0, -1.2), ( 2.2, -1.2),
+    (-2.2,  1.2), ( 0.0,  1.2), ( 2.2,  1.2),
     ( 0.0,  0.0),
 ]
 
@@ -194,26 +181,21 @@ for team, countries in audit_data.items():
 
 df = pd.DataFrame(rows)
 
-# Assign stable positions per country: sort teams so always same placement
 if not df.empty:
     df = df.sort_values(["Country", "Team"]).reset_index(drop=True)
-
     lat_list, lon_list = [], []
     for country, group in df.groupby("Country", sort=False):
         base_lat = group["base_lat"].iloc[0]
         base_lon = group["base_lon"].iloc[0]
-
-        # Use pattern per team in that country
         for i in range(len(group)):
-            dy, dx = offset_pattern[i % len(offset_pattern)]  # dy on lat, dx on lon
+            dy, dx = offset_pattern[i % len(offset_pattern)]
             lat_list.append(base_lat + dy)
             lon_list.append(base_lon + dx)
-
     df["lat"] = lat_list
     df["lon"] = lon_list
 
 # =================================================
-# TRANSFER STATUS BY TEAM
+# TRANSFER STATUS
 # =================================================
 transferred_teams = [t for t, c in audit_data.items() if isinstance(c, dict) and len(c) > 0]
 pending_transfer_teams = [t for t, c in audit_data.items() if isinstance(c, dict) and len(c) == 0]
@@ -229,7 +211,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # =================================================
-# KPIs (defendable)
+# KPIs
 # =================================================
 c1, c2, c3, c4 = st.columns(4)
 
@@ -252,54 +234,37 @@ with c4: st.metric("Teams Pending Transfer", f"{len(pending_transfer_teams)}")
 st.write("")
 
 # =================================================
-# FILTERS + TRANSFER STATUS PANEL
+# FILTERS
 # =================================================
 left, right = st.columns([1.15, 2.35])
 
 with left:
     st.markdown("<div class='panel'><div class='panel-title'><span class='badge'>Filters</span></div><div class='hr'></div>", unsafe_allow_html=True)
-
-    team_filter = st.multiselect(
-        "Teams",
-        options=sorted(df["Team"].unique()) if not df.empty else [],
-        default=sorted(df["Team"].unique()) if not df.empty else []
-    )
-    country_filter = st.multiselect(
-        "Countries",
-        options=sorted(df["Country"].unique()) if not df.empty else [],
-        default=sorted(df["Country"].unique()) if not df.empty else []
-    )
-
-    st.markdown("<div class='small-muted'>Tip: Select a country to review team readiness and gaps.</div>", unsafe_allow_html=True)
+    team_filter = st.multiselect("Teams", options=sorted(df["Team"].unique()) if not df.empty else [], default=sorted(df["Team"].unique()) if not df.empty else [])
+    country_filter = st.multiselect("Countries", options=sorted(df["Country"].unique()) if not df.empty else [], default=sorted(df["Country"].unique()) if not df.empty else [])
     st.markdown("</div>", unsafe_allow_html=True)
 
 with right:
     st.markdown("<div class='panel'><div class='panel-title'><span class='badge'>Transfer Status</span></div><div class='hr'></div>", unsafe_allow_html=True)
-
-    st.markdown("**✅ Transferred (in scope / executing):**")
+    st.markdown("**✅ Transferred:**")
     st.write(", ".join(transferred_teams) if transferred_teams else "—")
-
-    st.markdown("**⏳ Pending transfer (NA / NOTHING):**")
+    st.markdown("**⏳ Pending transfer:**")
     st.write(", ".join(pending_transfer_teams) if pending_transfer_teams else "—")
-
-    st.markdown("<div class='small-muted'>NA / NOTHING = not transferred to GBS Mexico scope yet (not a performance issue).</div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# Apply filters
 if not df.empty:
     df_f = df[df["Team"].isin(team_filter) & df["Country"].isin(country_filter)].copy()
 else:
     df_f = df.copy()
 
 # =================================================
-# MAP + DETAILS (TRUE INTERACTIVE + NO OVERLAP)
+# MAP + DETAILS
 # =================================================
 col_map, col_details = st.columns([1.7, 1.0])
 
 with col_map:
-    st.markdown("<div class='panel'><div class='panel-title'><span class='badge'>Americas Deployment Map</span><span class='small-muted'>Pins are placed inside each country (no overlap)</span></div><div class='hr'></div>", unsafe_allow_html=True)
-
-    # Scatter pins with outline (more corporate than icon atlas)
+    st.markdown("<div class='panel'><div class='panel-title'><span class='badge'>Americas Deployment Map</span></div><div class='hr'></div>", unsafe_allow_html=True)
+    
     map_layers = [
         pdk.Layer(
             "ScatterplotLayer",
@@ -315,7 +280,6 @@ with col_map:
             get_line_color=[255, 255, 255],
             line_width_min_pixels=2,
         ),
-        # Team label on top of pin (clean and professional)
         pdk.Layer(
             "TextLayer",
             data=df_f,
@@ -335,33 +299,24 @@ with col_map:
         layers=map_layers,
         tooltip={
             "text": "Team: {Team}\nCountry: {Country}\nReadiness: {Progress}%\nMissing: {Pending}"
-        },
-        controller=True  # ✅ makes it properly interactive
+        }
     )
 
     st.pydeck_chart(deck, use_container_width=True)
 
-    # Legend
-    st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
-    st.markdown("**Legend (Teams)**")
+    st.markdown("<div class='hr'></div>**Legend (Teams)**", unsafe_allow_html=True)
     for t in sorted(team_colors.keys()):
         rgb = team_colors[t]
-        st.markdown(
-            f"<div class='legend-item'><span class='dot' style='background: rgb({rgb[0]},{rgb[1]},{rgb[2]});'></span><span class='team-tag'>{t}</span></div>",
-            unsafe_allow_html=True
-        )
-
+        st.markdown(f"<div class='legend-item'><span class='dot' style='background: rgb({rgb[0]},{rgb[1]},{rgb[2]});'></span><span class='team-tag'>{t}</span></div>", unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
 with col_details:
     st.markdown("<div class='panel'><div class='panel-title'><span class='badge'>Country Drilldown</span></div><div class='hr'></div>", unsafe_allow_html=True)
-
     if df_f.empty:
         st.info("No data for selected filters.")
     else:
         selected_country = st.selectbox("Select Country", sorted(df_f["Country"].unique()))
         view = df_f[df_f["Country"] == selected_country].sort_values("Progress", ascending=False)
-
         for _, r in view.iterrows():
             st.markdown(f"### {r['Team']}")
             st.progress(r["Progress"] / 100)
@@ -371,7 +326,6 @@ with col_details:
             else:
                 st.markdown("✅ **Full readiness**")
             st.markdown("<div class='hr'></div>", unsafe_allow_html=True)
-
     st.markdown("</div>", unsafe_allow_html=True)
 
 # =================================================
@@ -379,19 +333,14 @@ with col_details:
 # =================================================
 st.write("")
 st.markdown("<div class='panel'><div class='panel-title'><span class='badge'>Executive Readiness Matrix</span></div><div class='hr'></div>", unsafe_allow_html=True)
-
-if df_f.empty:
-    st.info("No matrix to display for selected filters.")
-else:
+if not df_f.empty:
     st.dataframe(
-        df_f[["Team", "Country", "Progress", "Pending"]]
-        .sort_values(by=["Country", "Progress"], ascending=[True, False]),
+        df_f[["Team", "Country", "Progress", "Pending"]].sort_values(by=["Country", "Progress"], ascending=[True, False]),
         use_container_width=True,
         column_config={
             "Progress": st.column_config.ProgressColumn("Readiness", format="%d%%", min_value=0, max_value=100),
             "Pending": st.column_config.TextColumn("Identified gaps"),
         }
     )
-
 st.markdown("</div>", unsafe_allow_html=True)
-st.caption("CIQMS | DSV GBS Mexico – Knowledge Transfer Tracker | Confidential - Internal Use Only")
+st.caption("CIQMS | DSV GBS Mexico – Knowledge Transfer Tracker | Confidential")
